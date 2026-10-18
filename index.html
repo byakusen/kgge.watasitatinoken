@@ -1621,111 +1621,185 @@ window.TestRun=(function(){
 
 <script>
 /* ══════════ 📚 重要語句のタブ（説明だけのタブ・さわらなくて大丈夫） ══════════
-   「社会科アプリ_ひな形4」の重要語句のしくみを入れたもの。
+   表示のしかたは「社会科アプリ_ひな形5」の重要語句タブに合わせている。
    explainOnly:true のタブは、説明モードで開き、「説明／問題」をかくす。タブは緑色。
    ほかのタブにもどったら、前の「説明／問題」にもどす。
-   カードが7枚以上で 4×3（たて長の画面は 3×4）。カードをおすと、左の板の中だけで絵を大きくする。
-   pages:[[…12枚…],[…],…] と書くと、右下の ◀ ▶ でページをかえられる（1ページ12枚まで）。
-   土台の drawBoard()・loadSection()・showExplain() を外から包んで動く（いちばん最後に置くこと）。
+   pages:[[…12枚…],[…],…] と書いたタブは、ひな形5の重要語句の画面になる。
+     左：カードを 4×3（たて長の画面は 3×4）。下にページのボタン（1〜12・13〜24…）。
+         カードをおすと、左の板の中だけで絵が大きくなる（ページのボタンはかくれない）。大きな絵をおすと一覧にもどる。
+     右：番号・語句・‹ ›（前・次の語句）、その下に説明（body の1つが1行）。
+   土台の drawBoard()・loadSection() を外から包んで動く（いちばん最後に置くこと）。
    ══════════════════════════════════════════════════════════════════════ */
 (function(){
   const css=document.createElement('style');
   css.textContent=`
-  /* 重要語句：カードが7枚以上のときは 4×3 にならべる。文字のカード（tone に gl）は大きく、まん中に */
-  .board.many{grid-template-columns:repeat(4,minmax(0,1fr)); grid-template-rows:repeat(3,minmax(0,1fr));}
-  .board.many .card .cap{font-size:1rem; padding:.15rem .2rem .2rem;}
-  .board.many .badge{width:1.5rem; height:1.5rem; font-size:.8rem;}
   /* 重要語句のタブ（説明だけのタブ）は、緑の色にする */
   .tab.tab-gl{background:#e8f5ea; border-color:#9fcfa9; color:#2f7a45;}
   .tab.tab-gl .no{background:#86c095;}
   .tab.tab-gl.on{background:#2f8a4f; border-color:#2f8a4f; color:#fff;}
   .tab.tab-gl.on .no{background:#fff; color:#2f8a4f;}
   .tab.tab-gl:hover,.tab.tab-gl:focus-visible{border-color:var(--kin);}
-  /* 重要語句：カードをおすと、左の板の中だけで絵を大きく出す（絵をおすと一覧にもどる） */
-  .board.many{position:relative;}
-  .gl-big{position:absolute; inset:0; z-index:5; display:flex; flex-direction:column; background:var(--paper);
-    border-radius:.9rem; padding:.55rem; gap:.35rem; cursor:zoom-out; animation:zoomin .22s ease-out;}
-  .gl-big img{flex:1 1 auto; min-height:0; width:100%; object-fit:contain; display:block;}
-  .gl-big .gl-cap{flex:0 0 auto; text-align:center; font-size:1.3rem; font-weight:700; color:var(--ai);}
-  .gl-big .gl-back{flex:0 0 auto; text-align:center; font-size:.9rem; color:#5c7b8d;}
-  .card.doc.gl{display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:2rem .35rem .5rem;}
-  .card.doc.gl .dh{font-size:1.3rem; margin-bottom:.4rem;}
-  .card.doc.gl .dt{font-size:.88rem; line-height:1.55; color:#555;}
-  .card.doc.gl{background:#f1f7f2; border-color:#b9dcc1;}
-  .card.doc.gl .dh{color:#2f7a45;}
-  .card.doc.gl .dt{line-height:1.95;}
-  /* ページの切りかえ（右のパネルの下） */
-  .gl-pager{flex:0 0 auto; display:none; align-items:center; justify-content:center; gap:.7rem;
-    border-top:.14rem dotted var(--line); padding-top:.5rem; margin-top:.5rem;}
-  .gl-pager.on{display:flex;}
-  .gl-pg{background:#e8f5ea; border:.16rem solid #9fcfa9; color:#2f7a45; border-radius:999px;
-    font:inherit; font-weight:700; font-size:1.05rem; padding:.3rem 1.1rem; cursor:pointer; transition:.15s;}
-  .gl-pg:hover:not(:disabled),.gl-pg:focus-visible{border-color:var(--kin); outline:none; transform:translateY(-.1rem);}
-  .gl-pg:disabled{opacity:.35; cursor:default;}
-  .gl-no{font-weight:700; color:#2f7a45; font-size:1.05rem; display:flex; align-items:center; gap:.35rem;}
-  .gl-dot{width:.7rem; height:.7rem; border-radius:50%; background:#cfe5d4;}
-  .gl-dot.on{background:#2f8a4f;}
+  /* ---- ひな形5の重要語句の画面（緑） ---- */
+  main.wmode{grid-template-columns:1.6fr 1fr;}
+  .board.wd{display:flex; flex-direction:column; gap:.5rem; position:relative; overflow:hidden;}
+  .wgridbox{position:relative; flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
+  .wgrid{flex:1 1 auto; min-height:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-rows:repeat(3,minmax(0,1fr)); gap:.5rem;}
+  .wgrid.flip{animation:wflip .25s ease both;}
+  @keyframes wflip{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+  .wcard{font:inherit; position:relative; cursor:pointer; background:#fff; border:2px solid var(--line); border-radius:12px;
+    padding:.4rem .4rem .25rem; display:flex; flex-direction:column; gap:.15rem; min-height:0; min-width:0; color:var(--sumi); transition:.15s;}
+  .wcard:hover{border-color:#2f8a4f;}
+  .wcard:focus-visible{outline:3px solid #FFD24A; outline-offset:2px;}
+  .wcard.on{border-color:#2f8a4f; box-shadow:0 0 0 3px rgba(47,138,79,.25);}
+  .wcard .wno{position:absolute; top:.35rem; left:.35rem; z-index:2; min-width:1.75em; height:1.75em; padding:0 .2em; border-radius:99px;
+    background:#fff; border:2px solid #2f8a4f; color:#2f8a4f; font-weight:900; font-size:1rem; line-height:1; display:grid; place-items:center;}
+  .wpic{flex:1 1 auto; min-height:0; border-radius:8px; background:#fff center/contain no-repeat; overflow:hidden;}
+  .wcap{flex:0 0 auto; font-weight:700; font-size:1.3rem; line-height:1.25; text-align:center; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; padding-top:.35em;}
+  .wcap ruby rt{font-size:.5em; letter-spacing:.02em;}
+  .wcard.blank{visibility:hidden;}
+  .wpager{flex:0 0 auto; display:flex; justify-content:center; flex-wrap:wrap; gap:.5rem;}
+  .wpager button{font:inherit; font-weight:700; font-size:1.2rem; cursor:pointer;
+    background:#e8f5ea; border:2px solid #9fcfa9; color:#2f7a45; border-radius:99px; padding:.25rem 1.3rem; transition:.15s;}
+  .wpager button:hover{border-color:#2f8a4f;}
+  .wpager button:focus-visible{outline:3px solid #FFD24A; outline-offset:2px;}
+  .wpager button.on{background:#2f8a4f; border-color:#2f8a4f; color:#fff; box-shadow:0 1px 3px rgba(14,42,66,.25);}
+  /* カードをおすと、左の板の中だけで絵を大きく出す（絵をおすと一覧にもどる）。下のページボタンはかくさない */
+  .wbig{position:absolute; inset:-6px; z-index:5; display:flex; flex-direction:column; gap:.35rem; background:var(--paper);
+    padding:.1rem; cursor:zoom-out; animation:zoomin .22s ease-out both;}
+  .wbig .wpic{border:1px solid var(--line);}
+  .wbig .wbigcap{flex:0 0 auto; text-align:center; font-weight:700; font-size:1.7rem; line-height:1.5;}
+  .wbig .wback{flex:0 0 auto; text-align:center; font-size:1rem; color:#5c7b8d;}
+  /* 右のパネル */
+  .wdetail{flex:1 1 auto; min-height:0; display:none; flex-direction:column; gap:.8rem;}
+  .view.wmode > .hint, .view.wmode > .ex{display:none !important;}
+  .view.wmode > .wdetail{display:flex;}
+  .wd-head{flex:0 0 auto; display:flex; align-items:center; gap:.7rem; border-bottom:2px dashed #b9dcc1; padding-bottom:.55rem;}
+  .wd-no{font-weight:900; font-size:1.3rem; background:#2f8a4f; color:#fff;
+    min-width:1.8em; height:1.8em; padding:0 .35em; border-radius:99px; display:grid; place-items:center; flex:0 0 auto; line-height:1;}
+  .wd-word{font-weight:900; font-size:2.2rem; line-height:1.5; color:var(--sumi);}
+  .wd-word ruby rt{font-size:.45em;}
+  .wd-nav{margin-left:auto; display:flex; gap:.35rem; flex:0 0 auto;}
+  .wd-nav button{font:inherit; cursor:pointer; background:#e8f5ea; border:2px solid #9fcfa9; color:#2f7a45; border-radius:9px;
+    width:2.6rem; height:2.6rem; display:grid; place-items:center; font-size:1.4rem; line-height:1; transition:.15s;}
+  .wd-nav button:hover{border-color:#2f8a4f;}
+  .wd-nav button:focus-visible{outline:3px solid #FFD24A; outline-offset:2px;}
+  .wd-txt{flex:1 1 auto; min-height:0; font-size:1.6rem; line-height:2.1; overflow:auto;}
+  .wd-txt .wl{display:block;}
+  .wd-txt .wl + .wl{margin-top:.6em;}
+  .wd-txt em{font-style:normal; font-weight:700; color:var(--syu);}
+  .wd-txt ruby rt{font-size:.45em; font-weight:500; letter-spacing:.04em;}
+  .wd-tip{flex:0 0 auto; font-size:.95rem; color:#5c7b8d; background:#f1f7f2; border-radius:8px; padding:.45rem .8rem; line-height:1.9;}
   @media (max-aspect-ratio:1/1){
-    .board.many{grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-rows:repeat(4,minmax(0,1fr)); gap:.35rem; padding:.35rem;}
-    .board.many .card .cap{font-size:.75rem;}
-    .card.doc.gl{padding:.3rem .3rem .3rem 2.1rem; align-items:flex-start; text-align:left;}
-    .card.doc.gl .dh{font-size:1rem; margin-bottom:.1rem;} .card.doc.gl .dt{font-size:.75rem; line-height:1.35;}
-    .gl-pg{font-size:.9rem; padding:.2rem .8rem;} .gl-no{font-size:.9rem;}
-    .gl-pager{padding-top:.3rem; margin-top:.3rem;}
+    main.wmode{grid-template-columns:1fr;}
+    .wgrid{grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-rows:repeat(4,minmax(0,1fr)); gap:.35rem;}
+    .wcard .wno{font-size:.8rem;}
+    .wcap{font-size:1rem;}
+    .wpager button{font-size:1rem; padding:.15rem 1rem;}
+    .wbig .wbigcap{font-size:1.3rem;}
+    .wd-word{font-size:1.7rem;} .wd-txt{font-size:1.3rem; line-height:2;} .wd-tip{font-size:.8rem; line-height:1.7;}
+    .wd-nav button{width:2.2rem; height:2.2rem; font-size:1.2rem;}
   }`;
   document.head.appendChild(css);
 
-  /* ── ページの切りかえボタン（右のパネルの「説明」の下に置く） ── */
-  const pager=document.createElement('div');
-  pager.className='gl-pager'; pager.id='glPager';
-  pager.innerHTML='<button class="gl-pg" data-d="-1">◀ まえ</button><span class="gl-no" id="glNo"></span><button class="gl-pg" data-d="1">つぎ ▶</button>';
-  el('vExplain').appendChild(pager);
-  function showPager(){
-    const S=SECTIONS[sec], on=!!(S.pages&&S.pages.length>1&&mode==='explain');
-    pager.classList.toggle('on',on);
-    if(!on) return;
-    const n=S.pg||0, all=S.pages.length;
-    el('glNo').innerHTML=S.pages.map((_,j)=>'<span class="gl-dot'+(j===n?' on':'')+'"></span>').join('')+
-      '<span>'+(n+1)+' / '+all+'</span>';
-    pager.querySelector('[data-d="-1"]').disabled=(n===0);
-    pager.querySelector('[data-d="1"]').disabled=(n===all-1);
+  /* ── 右のパネル（「説明」の中に置く。重要語句のタブのときだけ見える） ── */
+  const main=document.querySelector('main'), vEx=el('vExplain');
+  const det=document.createElement('div');
+  det.className='wdetail';
+  det.innerHTML='<div class="wd-head"><span class="wd-no" id="wdNo"></span><b class="wd-word" id="wdWord"></b>'+
+    '<div class="wd-nav"><button id="wdPrev" aria-label="前の語句">‹</button><button id="wdNext" aria-label="次の語句">›</button></div></div>'+
+    '<p class="wd-txt" id="wdTxt"></p>'+
+    '<p class="wd-tip">カードをおすと、'+R('左','ひだり')+'で'+R('絵','え')+'が'+R('大','おお')+'きくなります。'+R('大','おお')+'きくなった'+R('絵','え')+'をおすと、'+R('一覧','いちらん')+'にもどります。</p>';
+  vEx.appendChild(det);
+
+  let W=null;   /* いま開いている重要語句のタブ（SECTIONS の1つ） */
+  const ALL=S=>S.pages.flat();
+  const pageOf=(S,i)=>{ let n=0; for(let p=0;p<S.pages.length;p++){ n+=S.pages[p].length; if(i<n) return p; } return 0; };
+  const first=(S,p)=>S.pages.slice(0,p).reduce((a,x)=>a+x.length,0);
+  function pic(d){ return '<div class="wpic" style="background-image:url(\''+d.img+'\')"></div>'; }
+  function closeBig(){ const o=board.querySelector('.wbig'); if(o) o.remove(); }
+  function openBig(i){
+    closeBig();
+    const d=ALL(W)[i];
+    const big=document.createElement('div'); big.className='wbig';
+    big.innerHTML=pic(d)+'<span class="wbigcap">'+(d.cap||'')+'</span>'+
+      '<span class="wback">'+R('絵','え')+'をおすと、カードの'+R('一覧','いちらん')+'にもどります</span>';
+    board.querySelector('.wgridbox').appendChild(big);
   }
-  pager.addEventListener('click',e=>{
-    const b=e.target.closest('.gl-pg'); if(!b||b.disabled) return;
-    const S=SECTIONS[sec]; if(!S.pages) return;
-    S.pg=Math.max(0,Math.min(S.pages.length-1,(S.pg||0)+(+b.dataset.d)));
-    S.cards=S.pages[S.pg];
-    drawBoard(S.cards);
-    el('ex').classList.remove('on'); el('hint').style.display='';   /* 説明を消して、はじめのことばにもどす */
-    showPager();
+  function drawPager(){
+    const pg=board.querySelector('.wpager'); pg.innerHTML='';
+    if(W.pages.length<2) return;
+    W.pages.forEach((x,p)=>{
+      const b=document.createElement('button');
+      const a=first(W,p)+1;
+      b.textContent=a+'〜'+(a+x.length-1);
+      b.classList.toggle('on',p===W.pg);
+      b.dataset.p=p;
+      pg.appendChild(b);
+    });
+  }
+  function showPage(p){
+    W.pg=p; W.cards=W.pages[p]; closeBig();
+    const g=board.querySelector('.wgrid'); g.innerHTML='';
+    const a=first(W,p), cs=W.pages[p];
+    for(let k=0;k<12;k++){
+      const b=document.createElement('button');
+      if(k>=cs.length){ b.className='wcard blank'; b.tabIndex=-1; g.appendChild(b); continue; }
+      const i=a+k, d=cs[k];
+      b.className='wcard'+(i===W.wc?' on':'');
+      b.dataset.i=i;
+      b.innerHTML='<span class="wno">'+(i+1)+'</span>'+pic(d)+'<span class="wcap">'+(d.cap||'')+'</span>';
+      b.setAttribute('aria-label',(i+1)+' '+(d.cap||'').replace(/<rt>.*?<\/rt>|<[^>]+>/g,''));
+      g.appendChild(b);
+    }
+    g.classList.remove('flip'); void g.offsetWidth; g.classList.add('flip');
+    drawPager();
+  }
+  function select(i){
+    W.wc=i;
+    const d=ALL(W)[i];
+    el('wdNo').textContent=i+1;
+    el('wdWord').innerHTML=d.head||d.cap||'';
+    el('wdTxt').innerHTML=(d.body||[]).map(t=>'<span class="wl">'+t+'</span>').join('');
+    el('wdTxt').scrollTop=0;
+    board.querySelectorAll('.wcard').forEach(c=>c.classList.toggle('on',+c.dataset.i===i));
+  }
+  function step(dir){
+    if(!W) return;
+    const n=ALL(W).length, i=(W.wc+dir+n)%n, p=pageOf(W,i);
+    const opened=!!board.querySelector('.wbig');
+    if(p!==W.pg) showPage(p);
+    select(i);
+    if(opened) openBig(i);
+  }
+  function build(S){
+    W=S;
+    board.classList.remove('many','strip','n5');
+    board.classList.add('wd');
+    board.innerHTML='<div class="wgridbox"><div class="wgrid"></div></div><div class="wpager"></div>';
+    main.classList.add('wmode'); vEx.classList.add('wmode');
+    showPage(W.pg||0); select(W.wc||0);
+  }
+  function clear(){ W=null; board.classList.remove('wd'); main.classList.remove('wmode'); vEx.classList.remove('wmode'); }
+
+  board.addEventListener('click',e=>{
+    if(!W) return;
+    const c=e.target.closest('.wcard:not(.blank)');
+    if(c){ e.stopPropagation(); const i=+c.dataset.i; select(i); openBig(i); return; }
+    if(e.target.closest('.wbig')){ e.stopPropagation(); closeBig(); return; }
+    const b=e.target.closest('.wpager button');
+    if(b){ e.stopPropagation(); const p=+b.dataset.p; if(p!==W.pg) showPage(p); else closeBig(); }
   });
+  el('wdPrev').addEventListener('click',()=>step(-1));
+  el('wdNext').addEventListener('click',()=>step(1));
 
   /* ── 土台の関数を外から包む ── */
   const _draw=drawBoard;
-  drawBoard=function(cards){
-    board.classList.remove('many');
-    const r=_draw.apply(this,arguments);
-    if(cards&&(cards.length>=7||SECTIONS[sec].pages)) board.classList.add('many');
-    return r;
-  };
-  /* 説明だけのタブでは、カードをおしたとき、画面全体ではなく左の板の中で大きくする */
-  const _showEx=showExplain;
-  showExplain=function(k){
-    const r=_showEx.apply(this,arguments);
-    if(!SECTIONS[sec].explainOnly||mode!=='explain') return r;
-    closeZoom();
-    const d=CURCARDS.find(x=>x.k===k); if(!d||!d.img) return r;
-    const old=board.querySelector('.gl-big'); if(old) old.remove();
-    const big=document.createElement('div'); big.className='gl-big';
-    big.innerHTML='<img src="'+d.img+'" alt=""><span class="gl-cap">'+(d.cap||'')+'</span>'+
-      '<span class="gl-back">'+R('絵','え')+'をクリックすると、カードの一覧にもどります</span>';
-    big.addEventListener('click',e=>{ e.stopPropagation(); big.remove(); });
-    board.appendChild(big);
-    return r;
-  };
+  drawBoard=function(){ clear(); return _draw.apply(this,arguments); };
   let keepTg=null;
   SECTIONS.forEach((S,n)=>{
-    if(S.pages){ S.pg=S.pg||0; S.cards=S.pages[S.pg]; }
+    if(S.pages){ S.pg=S.pg||0; S.wc=S.wc||0; S.cards=S.pages[S.pg]; }
     if(S.explainOnly){ const t=document.querySelector('#tabs .tab[data-s="'+n+'"]'); if(t) t.classList.add('tab-gl'); }
   });
   const _load=loadSection;
@@ -1742,11 +1816,9 @@ window.TestRun=(function(){
       if(keepTg!==null){ if(now==='explain') setTg(keepTg); keepTg=null; }
       r=_load.apply(this,arguments);
     }
-    showPager();
+    if(S.pages) build(S);
     return r;
   };
-  const _apply=applyMode;
-  applyMode=function(){ const r=_apply.apply(this,arguments); showPager(); return r; };
 })();
 </script>
 
@@ -1884,6 +1956,8 @@ window.TestRun=(function(){
    「4方位」ボタン：北・東・南・西だけを出す（あいだの方位は「？」のまま）。
    「8方位」ボタン：8つとも「？」にもどす（はじめから）。「全部見る」：8つとも出す。
    8つを1つずつ全部出すと、紙吹雪が出る。
+   「テスト」ボタン：光っている「？」の方位を、右の8つのボタンからえらぶ（8もん・じゅん番はばらばら）。
+   ほかの「？」をおすと、その方位の問題にかわる。全部1回で正解すると、はなまると紙吹雪。
    🎬 資料タブのしくみ（window.MV）を使うので、そのあとに置くこと。
    ══════════════════════════════════════════════════════════════════════ */
 (function(){
@@ -1922,16 +1996,38 @@ window.TestRun=(function(){
   .hp-lb:hover .q,.hp-lb:focus-visible .q{border-color:var(--kin); outline:none;}
   .hp-lb:focus-visible{outline:none;}
   .hp-lb.sel .t{box-shadow:0 0 0 .14em var(--kin), 0 .1em .4em rgba(0,0,0,.18);}
-  .hp-bar{flex:0 0 auto; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.4rem;}
+  .hp-bar{flex:0 0 auto; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.4rem;}
   .hp-bt{border:.16rem solid #ecc394; background:#fff; color:#8a4a12; border-radius:.6rem; font:inherit; font-weight:700; font-size:1.15rem;
     padding:.25rem .2rem .35rem; cursor:pointer; transition:.15s; line-height:1.6; box-shadow:0 .1rem .3rem rgba(0,0,0,.08);}
   .hp-bt:hover,.hp-bt:focus-visible{border-color:var(--kin); outline:none; transform:translateY(-.08rem);}
   .hp-bt.on{background:#d9772a; border-color:#d9772a; color:#fff;}
   .hp-note{flex:0 0 auto; text-align:center; font-size:.9rem; color:#8a5a2a;}
+  .hp-bt.tst{border-color:#8fb6d3; background:#eaf3fa; color:#1b4a68;}
+  .hp-bt.tst.on{background:#1b4a68; border-color:#1b4a68; color:#fff;}
+  .hp-lb.ask .q{border-style:solid; border-color:#1b4a68; background:#1b4a68; color:#fff; animation:hpask 1.1s ease-in-out infinite;}
+  @keyframes hpask{0%,100%{box-shadow:0 0 0 0 rgba(27,74,104,.5);} 50%{box-shadow:0 0 0 .5em rgba(27,74,104,0);}}
+  .hp-tq{font-size:1.4rem; font-weight:700; line-height:2; margin-bottom:.6rem;}
+  .hp-tq b{display:inline-block; background:#1b4a68; color:#fff; border-radius:50%; width:1.6em; height:1.6em; line-height:1.6em; text-align:center; font-size:.9em;}
+  .hp-ch{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem;}
+  .hp-op{font:inherit; font-weight:700; font-size:1.5rem; line-height:1.5; padding:.15rem .2rem .3rem; border-radius:.7rem; cursor:pointer;
+    border:.16rem solid #8fb6d3; background:#fff; color:#1b4a68; box-shadow:0 .1rem .3rem rgba(0,0,0,.1); transition:.15s;}
+  .hp-op rt{font-size:.45em;}
+  .hp-op:hover:not(:disabled),.hp-op:focus-visible{border-color:var(--kin); outline:none; transform:translateY(-.08rem);}
+  .hp-op.ng{animation:shake .38s; background:#f0f0f0; border-color:#b9b9b9; color:#9a9a9a; cursor:default;}
+  .hp-op.ok{background:#2f8a4f; border-color:#2f8a4f; color:#fff;}
+  .hp-tm{min-height:2.2em; margin-top:.6rem; font-size:1.3rem; font-weight:700; text-align:center; color:#2f8a4f; transition:opacity .3s;}
+  .hp-tm.ng{color:var(--syu);}
+  .hp-res{text-align:center; font-size:1.5rem; font-weight:700; line-height:2.2;}
+  .hp-res .big{font-size:2.4rem; color:var(--syu);}
+  .hp-again{font:inherit; font-weight:700; font-size:1.3rem; margin-top:.6rem; padding:.3rem 1.6rem .4rem; border-radius:999px; cursor:pointer;
+    border:.16rem solid #1b4a68; background:#1b4a68; color:#fff; box-shadow:0 .15rem .4rem rgba(0,0,0,.18); transition:.15s;}
+  .hp-again:hover,.hp-again:focus-visible{outline:none; transform:translateY(-.1rem); border-color:var(--kin);}
   @media (max-aspect-ratio:1/1){
     .hp-sw{font-size:.85rem; padding:.05rem .8rem .15rem;}
     .hp-bt{font-size:.9rem; padding:.1rem .2rem .2rem;}
     .hp-note{font-size:.75rem;}
+    .hp-tq{font-size:1.1rem; margin-bottom:.3rem;} .hp-op{font-size:1.2rem;} .hp-ch{gap:.35rem;}
+    .hp-tm{font-size:1.05rem; margin-top:.3rem;} .hp-res{font-size:1.2rem; line-height:1.9;} .hp-res .big{font-size:1.9rem;}
   }`;
   document.head.appendChild(css);
 
@@ -1977,7 +2073,7 @@ window.TestRun=(function(){
     MUKU+K('右','みぎ')+'が'+HIGASHI+'、'+K('左','ひだり')+'が'+NISHI+'、うしろが'+MINAMI+'です。']};
   const SUM8={title:'8'+H4, body:['4'+H4+'のあいだに、'+K('北東','ほくとう')+'・'+K('南東','なんとう')+'・'+K('南西','なんせい')+'・'+K('北西','ほくせい')+'を'+K('入','い')+'れたものを、<em>8'+H4+'</em>（'+K('八方位','はっぽうい')+'）といいます。',
     'あいだの'+H4+'は、「'+KITA+'」か「'+MINAMI+'」を'+K('先','さき')+'に'+K('言','い')+'います。']};
-  const ASK=K('八方位','はっぽうい')+'を、たしかめよう。';
+  const ASK='8'+H4+'を、たしかめよう。';
   const HINT='「？」をクリックすると、<br>'+H4+'が1つずつ'+K('出','で')+'ます。<br>「4'+H4+'」のボタンで、'+KITA+'・'+HIGASHI+'・'+MINAMI+'・'+NISHI+'だけになります。';
 
   function svg(){
@@ -1999,7 +2095,7 @@ window.TestRun=(function(){
     const d=document.createElement('div');
     d.className='hp-switch';
     d.innerHTML='<button class="hp-sw'+(VIEW==='movie'?' on':'')+'" data-v="movie">🎬 '+K('地形','ちけい')+'の'+K('動画','どうが')+'</button>'+
-                '<button class="hp-sw'+(VIEW==='hoi'?' on':'')+'" data-v="hoi">🧭 '+K('八方位','はっぽうい')+'</button>';
+                '<button class="hp-sw'+(VIEW==='hoi'?' on':'')+'" data-v="hoi">🧭 8'+H4+'</button>';
     board.prepend(d);
   }
   function clearHoi(){ H=null; if(ro){ ro.disconnect(); ro=null; } board.classList.remove('hp'); }
@@ -2034,8 +2130,10 @@ window.TestRun=(function(){
       dl.querySelector('.hp-lb[data-d="'+o.d+'"]').classList.toggle('open',on);
       dl.querySelector('.hp-lb[data-d="'+o.d+'"]').classList.toggle('sel',H.sel===o.d);
       dl.querySelector('.hp-pt.d-'+o.d).classList.toggle('open',on);
+      dl.querySelector('.hp-lb[data-d="'+o.d+'"]').classList.toggle('ask',!!(H.test&&H.test.cur===o.d&&!on));
     });
     board.querySelectorAll('.hp-bt[data-m]').forEach(b=>b.classList.toggle('on',+b.dataset.m===H.mode));
+    board.querySelectorAll('.hp-bt[data-t]').forEach(b=>b.classList.toggle('on',H.mode==='t'));
   }
   function openSeq(list){   /* じゅんに、ふわっと出す */
     const my=H;
@@ -2052,7 +2150,8 @@ window.TestRun=(function(){
                '<span class="q">？</span><span class="t">'+R(o.k,o.y)+'</span></button>'; }).join('')+
       '</div></div>'+
       '<div class="hp-bar"><button class="hp-bt" data-m="4">4'+H4+'</button><button class="hp-bt" data-m="8">8'+H4+'</button>'+
-        '<button class="hp-bt" data-all="1">'+K('全部','ぜんぶ')+K('見','み')+'る</button></div>'+
+        '<button class="hp-bt" data-all="1">'+K('全部','ぜんぶ')+K('見','み')+'る</button>'+
+        '<button class="hp-bt tst" data-t="1">📝 テスト</button></div>'+
       '<p class="hp-note">「？」をおすと、'+H4+'が1つずつ'+K('出','で')+'ます　／　「8'+H4+'」で、はじめからになります</p>';
     addSwitch();
     el('ask').innerHTML=ASK;
@@ -2060,6 +2159,70 @@ window.TestRun=(function(){
     ro=new ResizeObserver(fit); ro.observe(board.querySelector('.hp-stage'));
     fit(); render(); panelHint();
   }
+  /* ── テスト：光っている「？」の方位を、右のボタンからえらぶ ── */
+  function startTest(){
+    const ord=DIRS.map(o=>o.d).sort(()=>Math.random()-.5);
+    H={mode:'t', open:new Set(), byClick:new Set(), sel:null,
+       test:{cur:ord[0], tried:new Set(), miss:new Set(), lock:false}};
+    render(); testQ();
+  }
+  function testQ(){
+    const T=H.test, n=H.open.size+1;
+    T.tried=new Set();
+    el('hint').style.display='none';
+    el('ex').classList.add('on');
+    el('exMark').textContent='?';
+    el('exTitle').innerHTML='テスト';
+    el('exPlace').innerHTML=n+' / 8';
+    el('exPlace').style.display='';
+    el('exBody').innerHTML='<p class="hp-tq"><b>?</b> '+K('光','ひか')+'っている'+H4+'は、どれかな。</p>'+
+      '<div class="hp-ch">'+DIRS.map(o=>'<button class="hp-op" data-d="'+o.d+'">'+R(o.k,o.y)+'</button>').join('')+'</div>'+
+      '<p class="hp-tm" id="hpTm">'+K('下','した')+'のボタンからえらぼう。ほかの「？」をおすと、'+K('問題','もんだい')+'がかわります。</p>';
+    el('exBody').scrollTop=0;
+    el('hpTm').style.color='#5c7b8d'; el('hpTm').style.fontSize='.9rem';
+  }
+  function answer(b){
+    const T=H.test; if(!T||T.lock||b.disabled) return;
+    const tm=el('hpTm'); tm.style.color=''; tm.style.fontSize='';
+    if(b.dataset.d!==T.cur){
+      T.tried.add(b.dataset.d); T.miss.add(T.cur);
+      b.classList.add('ng'); b.disabled=true;
+      tm.className='hp-tm ng'; tm.textContent='ちがうよ。もういちど。';
+      return;
+    }
+    T.lock=true;
+    b.classList.add('ok');
+    if(typeof ping==='function') ping();
+    tm.className='hp-tm'; tm.innerHTML=K('正解','せいかい')+'！';
+    H.open.add(T.cur); render();
+    const my=H;
+    setTimeout(()=>{
+      if(H!==my) return;
+      T.lock=false;
+      const rest=DIRS.map(o=>o.d).filter(d=>!H.open.has(d));
+      if(rest.length){ T.cur=rest[Math.floor(Math.random()*rest.length)]; render(); testQ(); }
+      else testEnd();
+    },1100);
+  }
+  function testEnd(){
+    const T=H.test, ok=8-T.miss.size;
+    T.cur=null; render();
+    el('exMark').textContent='✓';
+    el('exTitle').innerHTML='テストのけっか';
+    el('exPlace').style.display='none';
+    el('exBody').innerHTML='<div class="hp-res">8もんのうち<br><span class="big">'+ok+'もん</span><br>1'+K('回','かい')+'で'+K('正解','せいかい')+'しました。'+
+      (ok===8?'<br>すごい！ ぜんもん'+K('正解','せいかい')+'！':'')+
+      '<br><button class="hp-again">もういちど</button></div>';
+    if(ok===8){
+      if(typeof hanamaru==='function') hanamaru();
+      if(window.confetti) confetti({particleCount:160, spread:100, origin:{y:.6}});
+    }
+  }
+  el('exBody').addEventListener('click',e=>{
+    if(!H||!H.test) return;
+    const b=e.target.closest('.hp-op'); if(b){ answer(b); return; }
+    if(e.target.closest('.hp-again')) startTest();
+  });
   function toMovie(){
     clearHoi(); VIEW='movie';
     el('ask').innerHTML=SECTIONS[sec].ask;
@@ -2072,6 +2235,10 @@ window.TestRun=(function(){
     if(!H) return;
     e.stopPropagation();
     const lb=e.target.closest('.hp-lb');
+    if(lb&&H.test){
+      if(!H.open.has(lb.dataset.d)&&!H.test.lock){ H.test.cur=lb.dataset.d; render(); testQ(); }
+      return;
+    }
     if(lb){
       const o=DIRS.find(x=>x.d===lb.dataset.d);
       if(!H.open.has(o.d)){
@@ -2083,6 +2250,7 @@ window.TestRun=(function(){
     }
     const bt=e.target.closest('.hp-bt');
     if(!bt) return;
+    if(bt.dataset.t){ startTest(); return; }
     if(bt.dataset.m==='4'){
       H={mode:4, open:new Set(), byClick:new Set(), sel:null}; render();
       openSeq(['n','e','s','w']); showPanel(SUM4.title,'4','',SUM4.body);
